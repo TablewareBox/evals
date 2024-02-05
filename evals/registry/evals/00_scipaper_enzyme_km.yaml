@@ -1,11 +1,11 @@
-scipaper_enzyme:
-  id: scipaper_enzyme.val.csv
+scipaper_enzyme_km:
+  id: scipaper_enzyme_km.val.csv
   metrics: [accuracy]
 
-scipaper_enzyme.val.csv:
+scipaper_enzyme_km.val.csv:
   class: evals.elsuite.rag_table_extract:TableExtract
   args:
-    samples_jsonl: 00_scipaper_enzyme/samples.jsonl
+    samples_jsonl: 00_scipaper_enzyme_km/samples.jsonl
     instructions: |
       Please give a complete list of SMILES structures, Km values, Vmax values, target info (protein or cell line), and organism of all substrates in the paper. Usually the substrates' tags are numbers or IUPAC names.
       1. Output in csv format, write units not in header but in the value like "10.5 µM". Quote the value if it has comma! For example:
