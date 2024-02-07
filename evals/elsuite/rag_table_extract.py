@@ -167,7 +167,6 @@ class TableExtract(evals.Eval):
                 file_name=sample.file_name,
                 jobtype="match_all"
             )
-            return
 
         metrics = tableMatching(correct_answer, table, index=sample.index, compare_fields=sample.compare_fields,
                                 record=False, file_name=sample.file_name)

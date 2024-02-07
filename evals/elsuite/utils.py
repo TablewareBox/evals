@@ -271,6 +271,9 @@ def fuzzy_normalize_name(s):
         s = re.sub(r'[^\w\s.\-\(\)]', '', s)
         if s in synonyms:
             s = synonyms[s]
+            
+        if "+" in s:
+            s = s.replace("+","")
 
         # 分割字符串为单词列表
         words = s.split()
