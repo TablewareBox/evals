@@ -111,7 +111,13 @@ class TableExtract(evals.Eval):
         correct_answer = parse_table_multiindex(pd.read_csv(sample.answerfile_name, header=header_rows).astype(str), compare_fields=sample.compare_fields)
         correct_answer.to_csv("temp.csv", index=False)
         correct_str = open("temp.csv", 'r').read()
-
+        
+        if sample.index not in correct_answer.columns:
+            if len(header_rows)>1:
+                correct_answer.columns = pd.MultiIndex.from_tuples([sample.index] + list(correct_answer.columns)[1:])
+            else:
+                correct_answer.columns = [sample.index] + list(correct_answer.columns)[1:]
+                
         try:
             if re.search(outlink_pattern, sampled) is not None:
                 code = re.search(outlink_pattern, sampled).group()
@@ -137,10 +143,16 @@ class TableExtract(evals.Eval):
                 table = pd.DataFrame(json.loads(code_content))
             else:
                 table = pd.DataFrame()
+                
             table = parse_table_multiindex(table, compare_fields=sample.compare_fields)
-
+            
             if sample.index not in table.columns:
-                table.columns = [sample.index] + list(table.columns)[1:]
+                if len(header_rows)>1:
+                    table.columns = pd.MultiIndex.from_tuples([sample.index] + list(table.columns)[1:])
+                else:
+                     table.columns =[sample.index] + list(table.columns)[1:]
+
+            print(table)
             answerfile_out = sample.answerfile_name.replace(".csv", "_output.csv")
             table.to_csv(answerfile_out, index=False)
             picked_str = open(answerfile_out, 'r').read()

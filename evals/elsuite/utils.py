@@ -199,7 +199,7 @@ def fuzzy_compare(a: str, b: str, metric="EditDistance") -> Union[bool, float]:
 
         if mark == "=":
             mark = ""
-        return f"{mark}{number:.1f} {unit}"
+        return f"{mark}{number:.1f} {unit}" #
 
     def is_float(str):
         try:
@@ -218,11 +218,11 @@ def fuzzy_compare(a: str, b: str, metric="EditDistance") -> Union[bool, float]:
         return True
     elif fuzzy_normalize_value(a) == fuzzy_normalize_value(b):
         return True
-    elif ((a[-2:] in unit_str or a[-1] in unit_str or a.split()[-1] in unit_str) and
-          (b[-2:] in unit_str or b[-1] in unit_str or b.split()[-1] in unit_str)):
-        a = standardize_unit(a)
-        b = standardize_unit(b)
-        return a == b
+    # elif ((a[-2:] in unit_str or a[-1] in unit_str or a.split()[-1] in unit_str) and
+    #       (b[-2:] in unit_str or b[-1] in unit_str or b.split()[-1] in unit_str)):
+    #     a = standardize_unit(a)
+    #     b = standardize_unit(b)
+    #     return a == b
     elif a.lower() in nan_str and b.lower() in nan_str:
         return True
     elif (a.lower() in b.lower()) or (b.lower() in a.lower()):
@@ -264,7 +264,8 @@ def fuzzy_normalize_name(s):
         return ' '.join(reordered_words)
 
 
-def fuzzy_normalize_value(vi):
+def fuzzy_normalize_value(viz):
+    vi = copy.copy(viz)
     try:
         vi = str(vi).lower()
 
@@ -295,10 +296,11 @@ def fuzzy_normalize_value(vi):
         except:
             # print(vi)
             pass
+        return vi
     except:
-        print("Can't fuzzy for", vi)
-
-    return vi
+        # print("Can't fuzzy for", viz)
+        # print(viz)
+        return viz
 
 
 def tableMatching(df_ref, df_prompt, index='Compound', compare_fields=[], record=True, file_name=None):
@@ -397,7 +399,7 @@ def tableMatching(df_ref, df_prompt, index='Compound', compare_fields=[], record
                 p = str(df_prompt.loc[idx, col])
             except:
                 p = 'not found'
-
+            print(f"compare:{gt}, {p}")
             _is_matching = fuzzy_compare(gt, p) if col != "SMILES" else compare_molecule(gt, p)
             if col == "SMILES":
                 smiles_match_score += float(_is_matching)
