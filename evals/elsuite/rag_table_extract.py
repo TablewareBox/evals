@@ -16,7 +16,7 @@ import evals
 import evals.metrics
 from evals.api import CompletionFn
 from evals.elsuite.rag_match import get_rag_dataset
-from evals.elsuite.utils import fuzzy_compare, fuzzy_normalize_name, tableMatching, tableMatchingStrict
+from evals.elsuite.utils import fuzzy_compare_name, fuzzy_normalize_value, fuzzy_normalize_name, tableMatching, tableMatchingStrict
 from evals.record import RecorderBase, record_match
 
 
@@ -179,6 +179,7 @@ class TableExtract(evals.Eval):
             file_name=sample.file_name,
             jobtype="match_all"
         )
+        return metrics
 
     def run(self, recorder: RecorderBase):
         raw_samples = get_rag_dataset(self._prefix_registry_path(self.samples_jsonl).as_posix())
