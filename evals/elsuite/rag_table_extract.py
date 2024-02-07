@@ -16,7 +16,7 @@ import evals
 import evals.metrics
 from evals.api import CompletionFn
 from evals.elsuite.rag_match import get_rag_dataset
-from evals.elsuite.utils import fuzzy_compare, fuzzy_normalize_name, tableMatching, tableMatchingStrict
+from evals.elsuite.utils import fuzzy_compare_name, fuzzy_normalize_value, fuzzy_normalize_name, tableMatching, tableMatchingStrict
 from evals.record import RecorderBase, record_match
 
 
@@ -167,8 +167,9 @@ class TableExtract(evals.Eval):
                 file_name=sample.file_name,
                 jobtype="match_all"
             )
-            return
-
+            table = None
+            picked_str = "Failed to parse"
+            
         metrics = tableMatching(correct_answer, table, index=sample.index, compare_fields=sample.compare_fields,
                                 record=False, file_name=sample.file_name)
         record_match(
@@ -179,6 +180,8 @@ class TableExtract(evals.Eval):
             file_name=sample.file_name,
             jobtype="match_all"
         )
+        return metrics
+        return metrics
 
     def run(self, recorder: RecorderBase):
         raw_samples = get_rag_dataset(self._prefix_registry_path(self.samples_jsonl).as_posix())
@@ -195,6 +198,3 @@ class TableExtract(evals.Eval):
             metrics["recall_SMILES"] = np.mean([sample_metrics["recall_SMILES"] for sample_metrics in metrics_all_sample
                                                 if "recall_SMILES" in sample_metrics])
         return metrics
-        # return {
-        #     "accuracy": evals.metrics.get_accuracy(recorder.get_events("match")),
-        # }

@@ -177,7 +177,25 @@ def fuzzy_match(s1: str, s2: str) -> bool:
     return s1 in s2 or s2 in s1
 
 
-def fuzzy_compare(a: str, b: str, metric="EditDistance") -> Union[bool, float]:
+def fuzzy_compare_name(a: str, b: str, metric="EditDistance", compare_value=False) -> Union[bool, float]:
+    unit_str = ["nM", "uM", "µM", "mM", "%", " %", "wt.%", "at.%", "at%", "wt%"]
+    nan_str = ["n/a", "nan", "na", "n.a.", "nd", "not determined", "not tested", "inactive"]
+    keywords = ["pIC50", "IC50", "EC50", "TC50", "GI50", "Ki", "Kd", "Kb", "pKb"]
+    a = a.strip()
+    b = b.strip()
+
+    if ((a.lower().startswith(b.lower()) or a.lower().endswith(b.lower())) or
+        (b.lower().startswith(a.lower()) or b.lower().endswith(a.lower()))):
+        return True
+    else:
+        if metric == "EditDistance":
+            import Levenshtein
+            return 1 - Levenshtein.distance(a.lower(), b.lower()) / (len(a) + len(b))
+        elif metric == "Word2Vec":
+            pass
+
+
+def fuzzy_compare_value(a: str, b: str, metric="EditDistance") -> Union[bool, float]:
     """
     Compare two strings with fuzzy matching.
     """
@@ -225,7 +243,8 @@ def fuzzy_compare(a: str, b: str, metric="EditDistance") -> Union[bool, float]:
     #     return a == b
     elif a.lower() in nan_str and b.lower() in nan_str:
         return True
-    elif (a.lower() in b.lower()) or (b.lower() in a.lower()):
+    if ((a.lower().startswith(b.lower()) or a.lower().endswith(b.lower())) or
+        (b.lower().startswith(a.lower()) or b.lower().endswith(a.lower()))):
         return True
     else:
         if metric == "EditDistance":
@@ -252,6 +271,9 @@ def fuzzy_normalize_name(s):
         s = re.sub(r'[^\w\s.\-\(\)]', '', s)
         if s in synonyms:
             s = synonyms[s]
+            
+        if "+" in s:
+            s = s.replace("+","")
 
         # 分割字符串为单词列表
         words = s.split()
@@ -279,11 +301,11 @@ def fuzzy_normalize_value(viz):
         vi = vi.replace("~", "-")
 
         pattern = r"\d+(?:\.\d+)?"
-        vi = re.findall(pattern, vi)
-        if len(vi) == 2:
-            vi = f"{vi[0]}-{vi[1]}"
-        else:
-            vi = vi[0]
+        matches = re.findall(pattern, vi)
+        if len(matches) == 2:
+            vi = f"{matches[0]}-{matches[1]}"
+        elif len(matches) == 1:
+            vi = matches[0]
 
         if "<" in vi:
             vi = vi.replace("<", "")
@@ -301,11 +323,18 @@ def fuzzy_normalize_value(viz):
         # print("Can't fuzzy for", viz)
         # print(viz)
         return viz
+        pass
+
+    return vi
 
 
 def tableMatching(df_ref, df_prompt, index='Compound', compare_fields=[], record=True, file_name=None):
     from munkres import Munkres
+    assert len(df_ref) > 0, "Prompt table is empty."
 
+    if df_prompt is None or len(df_prompt) == 0:
+        return {"recall_field": 0.0, "recall_index": 0.0, "recall_value": 0.0, "recall_value_strict": 0.0,
+                "accuracy_value": 0.0, "accuracy_value_strict": 0.0, "recall_SMILES": 0.0}
     metrics = {}
     index_names = ["Compound", "Name", "SMILES", "Nickname", "Substrate"]
 
@@ -329,7 +358,7 @@ def tableMatching(df_ref, df_prompt, index='Compound', compare_fields=[], record
                 query_j = name2query(name_j)
                 if fuzzy_normalize_name(query_i) == "" or fuzzy_normalize_name(query_j) == "":
                     similarities[i, j] = 0
-                result = fuzzy_compare(fuzzy_normalize_name(query_i), fuzzy_normalize_name(query_j))
+                result = fuzzy_compare_value(fuzzy_normalize_name(query_i), fuzzy_normalize_name(query_j))
                 if type(result) == bool:
                     similarities[i, j] = 1 if result else 0
                 elif type(result) == float:
@@ -399,8 +428,8 @@ def tableMatching(df_ref, df_prompt, index='Compound', compare_fields=[], record
                 p = str(df_prompt.loc[idx, col])
             except:
                 p = 'not found'
-            print(f"compare:{gt}, {p}")
-            _is_matching = fuzzy_compare(gt, p) if col != "SMILES" else compare_molecule(gt, p)
+
+            _is_matching = fuzzy_compare_name(gt, p, compare_value=True) if col != "SMILES" else compare_molecule(gt, p)
             if col == "SMILES":
                 smiles_match_score += float(_is_matching)
             if record:
@@ -447,7 +476,7 @@ def tableMatchingStrict(df_ref, df_prompt, idx_col='Nickname'):
                 pd = df_prompt.loc[idx, col]
             except:
                 pd = 'not found'
-            _is_matching = fuzzy_compare(gt, pd)
+            _is_matching = fuzzy_compare_value(gt, pd)
             _total_matching *= float(_is_matching)
             match_score += float(_is_matching) / M
         total_match_score += _total_matching
