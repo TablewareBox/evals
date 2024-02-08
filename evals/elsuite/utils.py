@@ -383,12 +383,14 @@ def tableMatching(df_ref, df_prompt, index='Compound', compare_fields=[], record
         return renames
 
     renames = match_indices(compare_fields, df_prompt.columns)
+    print(renames)
     renames = {key: value for key, value in renames.items() if key not in index_names}
     if len(renames) > 0:
         print("Find similar fields between answer and correct:", renames)
         df_prompt.rename(columns=renames, inplace=True)
 
     renames = match_indices(df_ref.index, df_prompt.index)
+    print(renames)
     renames = {key: value for key, value in renames.items() if key not in index_names}
     if len(renames) > 0:
         print("Find similar indices between answer and correct:", renames)
