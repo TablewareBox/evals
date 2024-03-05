@@ -106,17 +106,23 @@ class RAGMatch(evals.Eval):
         
         sampled = result.get_completions()[0]
         
+        print(sampled)
         try:
-            pattern = re.compile(r'\w\)\s\d+\s?[°]?[CK]?')
-            sampled0 = pattern.findall(sampled)[0]
+            # pattern = re.compile(r'\w\)[\s\d+]?\s?[°]?[CK]?')
+            pattern = re.compile(r'\w\)\s\d+(?:\.\d+)?\s?[°]?[CK]?') # 包含整数小数
+            
+            sampled0 = pattern.findall(sampled)
             if sampled0 is None or sampled0==[]:
                 pass
             else:
-                sampled = sampled0.replace("°"," ")
-                sampled = sampled.replace("  "," ")
-            print(sampled0)
-            print(sampled)
-            print(sample["ideal"])
+                sampled = sampled0[0]
+            
+            sampled = sampled.replace("°"," ")
+            sampled = sampled.replace("  "," ")
+            
+            print("eval:",sampled)
+            
+            print("true:",sample["ideal"])
             
         except BaseException as e:
             print(e)
