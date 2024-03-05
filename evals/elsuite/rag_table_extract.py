@@ -23,6 +23,7 @@ from evals.record import RecorderBase, record_match
 code_pattern = r"```[\s\S]*?\n([\s\S]+?)\n```"
 json_pattern = r"```json[\s\S]*?\n([\s\S]+?)\n```"
 csv_pattern = r"```csv[\s\S]*?\n([\s\S]+?)\n```"
+table_pattern = r"\n({index0}[\s\S]+)\n[`]*"
 outlink_pattern = r"\[Download[a-zA-Z0-9 ]+?\]\((https://[a-zA-Z0-9_. /]+?)\)"
 
 
@@ -73,7 +74,7 @@ class FileSample(BaseModel):
     answerfile_name: Optional[str]
     answerfile_link: Optional[str]
     compare_fields: List[Union[str, Tuple]]
-    index: Union[str, Tuple] = ("Compound", "")
+    index: Union[str, Tuple, List] = ("Compound", "")
 
 
 class TableExtract(evals.Eval):
@@ -91,6 +92,7 @@ class TableExtract(evals.Eval):
         self.instructions = instructions
 
     def eval_sample(self, sample, rng):
+<<<<<<< HEAD
         try:
             
             assert isinstance(sample, FileSample)
@@ -175,6 +177,81 @@ class TableExtract(evals.Eval):
                 
             metrics = tableMatching(correct_answer, table, index=sample.index, compare_fields=sample.compare_fields,
                                     record=False, file_name=sample.file_name)
+=======
+        assert isinstance(sample, FileSample)
+
+        prompt = \
+                self.instructions
+                # + f"\nThe fields should at least contain {sample.compare_fields}"
+        result = self.completion_fn(
+            prompt=prompt,
+            temperature=0.0,
+            file_name=sample.file_name,
+            file_link=sample.file_link
+        )
+        sampled = result.get_completions()[0]
+
+        compare_fields_types = [type(x) for x in sample.compare_fields]
+        header_rows = [0, 1] if tuple in compare_fields_types else [0]
+
+        correct_answer = parse_table_multiindex(pd.read_csv(sample.answerfile_name, header=header_rows).astype(str), compare_fields=sample.compare_fields)
+        correct_answer.to_csv("temp.csv", index=False)
+        correct_str = open("temp.csv", 'r').read()
+
+        try:
+            if re.search(outlink_pattern, sampled) is not None:
+                code = re.search(outlink_pattern, sampled).group()
+                link = re.sub(outlink_pattern, r"\1", code)
+
+                fname = f"/tmp/LLMEvals_{uuid.uuid4()}.csv"
+                os.system(f"wget {link} -O {fname}")
+                table = pd.read_csv(fname)
+                if pd.isna(table.iloc[0, 0]):
+                    table = pd.read_csv(fname, header=header_rows)
+            elif "csv" in prompt:
+                starts = sample.index if type(sample.index) == str else sample.index[0]
+                table_pattern_format = table_pattern.format(index0=starts)
+                if re.search(csv_pattern, sampled) is not None:
+                    code = re.search(csv_pattern, sampled).group()
+                    code_content = re.sub(csv_pattern, r"\1", code)
+
+                elif re.search(table_pattern_format, "\n" + sampled) is not None:
+                    code = re.search(table_pattern_format, "\n" + sampled).group().strip()
+                    code_content = re.sub(table_pattern_format, r"\1", code)
+                else:
+                    code_content = sampled
+                code_content_processed = parse_csv_text(code_content)
+                # table = pd.read_csv(StringIO(code_content_processed), header=header_rows)
+                table = pd.read_csv(StringIO(code_content_processed))
+                if table.shape[0] == 0:
+                    table = pd.DataFrame()
+                elif pd.isna(table.iloc[0, 0]):
+                    table = pd.read_csv(StringIO(code_content_processed), header=header_rows)
+
+            elif "json" in prompt:
+                code = re.search(json_pattern, sampled).group()
+                code_content = re.sub(json_pattern, r"\1", code).replace("\"", "")
+                table = pd.DataFrame(json.loads(code_content))
+            else:
+                table = pd.DataFrame()
+            table = parse_table_multiindex(table, compare_fields=sample.compare_fields)
+
+            if table.shape[0] != 0:
+                idxlist = table.columns
+                if type(sample.index) in [str, tuple]:
+                    if sample.index not in table.columns:
+                        idxlist = [sample.index] + list(table.columns)[1:]
+                elif type(sample.index) == list:
+                    if True in [idx not in table.columns for idx in sample.index]:
+                        idxlist = list(sample.index) + list(table.columns)[len(sample.index):]
+                table.columns = idxlist if table.columns.nlevels == 1 else pd.MultiIndex.from_tuples(idxlist)
+            answerfile_out = sample.answerfile_name.replace(".csv", "_output.csv")
+            table.to_csv(answerfile_out, index=False)
+            picked_str = open(answerfile_out, 'r').read()
+        except:
+            print(Path(sample.file_name).stem)
+            traceback.print_exc()
+>>>>>>> 60025939908ad308a6bbf6e8c1ade42b69ae7596
             record_match(
                 prompt=prompt,
                 correct=(metrics["recall_field"] == 1.0 and metrics["recall_index"] == 1.0 and metrics["recall_value"] == 1.0),
