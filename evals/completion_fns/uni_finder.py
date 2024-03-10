@@ -93,7 +93,6 @@ class UniFinderCompletionFn(CompletionFn):
             "pdf_token": pdf_token,
             "query": prompt,
             'api_key': self.api_key,
-            'model_engine': 'gpt',
         }
         response = requests.post(url, json=payload, timeout=300)
         try:

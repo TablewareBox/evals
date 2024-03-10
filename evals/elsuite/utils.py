@@ -359,7 +359,7 @@ def tableMatching(df_ref, df_prompt, index='Compound', compare_fields=[], record
         """
         renames = {}
 <<<<<<< HEAD
-        name2query = lambda name: name if type(name) != tuple else name[0] if len(name)==1 or name[1] == "" else name[1]
+        name2query = lambda name: name if type(name) != tuple else name[0] if len(name) == 1 or name[1] == "" else name[1]
 =======
         name2query = lambda name: name if type(name) != tuple else name[0] if len(name) == 1 or name[1] == "" else name[1]
 >>>>>>> 60025939908ad308a6bbf6e8c1ade42b69ae7596
