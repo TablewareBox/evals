@@ -67,7 +67,8 @@ class UniFinderCompletionFn(CompletionFn):
                 files = {'file': open(kwargs["file_name"], 'rb')}
                 data = {
                     # 'pdf_parse_mode': self.pdf_parse_mode,
-                    'api_key': self.api_key
+                    'api_key': self.api_key,
+                    'model_engine': 'gpt',
                 }
                 response = requests.post(url, data=data, files=files)
                 pdf_id = response.json()['pdf_token']  # 获得pdf的id，表示上传成功，后续可以使用这个id来指定pdf
@@ -88,10 +89,11 @@ class UniFinderCompletionFn(CompletionFn):
             prompt = CompletionPrompt(prompt).to_formatted_prompt()
 
         payload = {
-            "model_engine": self.model,
+            # "model_engine": self.model,
             "pdf_token": pdf_token,
             "query": prompt,
-            'api_key': self.api_key
+            'api_key': self.api_key,
+            'model_engine': 'gpt',
         }
         response = requests.post(url, json=payload, timeout=300)
         try:

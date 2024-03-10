@@ -1,6 +1,5 @@
 import os
 from pathlib import Path
-import re
 from typing import Any
 
 import oss2
@@ -81,6 +80,7 @@ class RAGMatch(evals.Eval):
             assert few_shot_jsonl is not None, "few shot requires few shot sample dataset"
             self.few_shot_jsonl = few_shot_jsonl
             self.few_shot = evals.get_jsonl(self._prefix_registry_path(self.few_shot_jsonl))
+        self.choice = ["a)", "b)", "c)", "d)"]
 
     def eval_sample(self, sample: Any, *_):
         assert isinstance(sample, dict), "sample must be a dict"
@@ -103,38 +103,40 @@ class RAGMatch(evals.Eval):
             temperature=0.0,
             **{k: v for k, v in sample.items() if k not in ["input", "ideal"]}
         )
-        
         sampled = result.get_completions()[0]
-        
-        print(sampled)
-        try:
-            # pattern = re.compile(r'\w\)[\s\d+]?\s?[°]?[CK]?')
-            pattern = re.compile(r'\w\)\s\d+(?:\.\d+)?(?:\s?:\s?\d+(?:\.\d+)?)?\s?[°]?[CK]?') # 包含整数小数比例
-            
-            sampled0 = pattern.findall(sampled)
-            if sampled0 is None or sampled0==[]:
-                pass
-            else:
-                sampled = sampled0[0]
-            
-            sampled = sampled.replace("°"," ")
-            sampled = sampled.replace("  "," ")
-            
-            print("eval:",sampled)
-            
-            print("true:",sample["ideal"])
-            
-        except BaseException as e:
-            print(e)
-        
-        print(sample["file_name"])
 
-        return evals.record_and_check_match(
+        extras = {}
+        if hasattr(result, "extras"):
+            if "extracted_answer" in result.extras:
+                sampled = result.extras["extracted_answer"].rstrip(".")
+            extras = result.extras
+
+        sampled_tmp = sampled.split("\n")[-1]
+        choice = sample["ideal"][:2]        
+        if choice in sampled_tmp:
+            for i in self.choice:
+                if i == choice:
+                    continue
+                elif i in sampled_tmp:
+                    sampled = ""
+                    break
+            sampled = sample["ideal"]
+        else:
+            sampled = ""
+
+        return_result = evals.record_and_check_match(
             prompt=prompt,
             sampled=sampled,
             expected=sample["ideal"],
-            file_name=sample["file_name"]
+            file_name=sample["file_name"],
+            **extras
         )
+        print("checkresult----------------------------------")
+        print("sampled", sampled)
+        print("ideal", sample["ideal"])
+        print("check result", return_result)
+        print("end----------------------------------")
+        return return_result
 
     def run(self, recorder):
         samples = get_rag_dataset(self._prefix_registry_path(self.samples_jsonl).as_posix())
