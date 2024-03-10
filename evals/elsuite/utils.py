@@ -358,11 +358,8 @@ def tableMatching(df_ref, df_prompt, index='Compound', compare_fields=[], record
         Match the indices of two dataframes.
         """
         renames = {}
-<<<<<<< HEAD
         name2query = lambda name: name if type(name) != tuple else name[0] if len(name) == 1 or name[1] == "" else name[1]
-=======
-        name2query = lambda name: name if type(name) != tuple else name[0] if len(name) == 1 or name[1] == "" else name[1]
->>>>>>> 60025939908ad308a6bbf6e8c1ade42b69ae7596
+
         similarities = np.array(np.ones([len(ind0) + 15, len(ind1) + 15]), dtype=np.float64)
         querys0 = [name2query(name) for name in ind0]
         querys1 = [name2query(name) for name in ind1]
@@ -439,17 +436,11 @@ def tableMatching(df_ref, df_prompt, index='Compound', compare_fields=[], record
     for idx in df_ref.index:
         _total_matching = 1.0
         for col in compare_fields_:
-<<<<<<< HEAD
-            try:
-                gt = str(df_ref.loc[idx, col])
-                p = str(df_prompt.loc[idx, col])
-=======
             gtval = df_ref.loc[idx, col]
             gt = str(gtval.iloc[0]) if type(gtval) == pd.Series else str(gtval)
             try:
                 pval = df_prompt.loc[idx, col]
                 p = str(pval.iloc[0]) if type(pval) == pd.Series else str(pval)
->>>>>>> 60025939908ad308a6bbf6e8c1ade42b69ae7596
             except:
                 gt = 'error'
                 p = 'not found'
