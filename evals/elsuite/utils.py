@@ -1,11 +1,10 @@
 import copy
+import json
 import re
 import string
 from collections import Counter, defaultdict
 from typing import Optional, Union, List, Any
 from scipy.spatial.distance import cosine
-from gensim.models import KeyedVectors
-from evals import metrics
 import numpy as np
 import pandas as pd
 
@@ -270,16 +269,16 @@ def fuzzy_normalize_name(s):
         return ""
     else:
         """ 标准化字符串 """
-        # 定义需要移除的单位和符号
-        units = ["µM", "µg/mL", "nM", "%", "wt.%", "at.%", "at%", "wt%"]
-        for unit in units:
-            s = s.replace(unit, "")
+        # # 定义需要移除的单位和符号
+        # units = ["µM", "µg/mL", "nM", "%", "wt.%", "at.%", "at%", "wt%"]
+        # for unit in units:
+        #     s = s.replace(unit, "")
 
         # 定义特定关键字
         keywords = ["pIC50", "IC50", "EC50", "TC50", "GI50", "Ki", "Kd", "Kb", "pKb"]
 
         # 移除非字母数字的字符，除了空格
-        s = re.sub(r'[^\w\s.\-\(\)]', '', s)
+        s = re.sub(r'[^\w\s%.\-\(\)]', '', s)
         if s in synonyms:
             s = synonyms[s]
         
@@ -306,10 +305,9 @@ def fuzzy_normalize_value(viz):
             vi = "bal"
             return "bal"
 
-        if "nan" in vi or "/" == vi or "n/a" in vi or "na" in vi or vi == "":
+        if ("nan" in vi and not "–" in vi) or "/" == vi or "n/a" in vi or "na" in vi or vi == "":
             vi = "0"
-
-        vi = vi.replace("~", "-")
+        vi = vi.replace("nan", "–").replace("~", "-")
 
         pattern = r"\d+(?:\.\d+)?"
         matches = re.findall(pattern, vi)
@@ -349,10 +347,11 @@ def tableMatching(df_ref, df_prompt, index='Compound', compare_fields=[], record
     metrics = {}
     index_names = ["Compound", "Name", "SMILES", "Nickname", "Substrate"]
 
-    df_prompt[index] = df_prompt[index].astype(str)
-    df_ref[index] = df_ref[index].astype(str)
-    df_ref = df_ref.set_index(index)
-    df_prompt = df_prompt.set_index(index)
+    if index not in [None, ""]:
+        df_ref[index] = df_ref[index].astype(str)
+        df_ref = df_ref.set_index(index)
+        df_prompt[index] = df_prompt[index].astype(str)
+        df_prompt = df_prompt.set_index(index)
 
     def match_indices(ind0, ind1, threshold=0.9) -> dict:
         """
@@ -403,11 +402,12 @@ def tableMatching(df_ref, df_prompt, index='Compound', compare_fields=[], record
         print("Find similar fields between answer and correct:", renames)
         df_prompt.rename(columns=renames, inplace=True)
 
-    renames = match_indices(df_ref.index, df_prompt.index)
-    renames = {key: value for key, value in renames.items() if key not in index_names}
-    if len(renames) > 0:
-        print("Find similar indices between answer and correct:", renames)
-        df_prompt.rename(index=renames, inplace=True)
+    if index != "":
+        renames = match_indices(df_ref.index, df_prompt.index)
+        renames = {key: value for key, value in renames.items() if key not in index_names}
+        if len(renames) > 0:
+            print("Find similar indices between answer and correct:", renames)
+            df_prompt.rename(index=renames, inplace=True)
 
     compare_fields_ = [col for col in compare_fields if
                        col not in [index] + ([index[0]] if type(index) == tuple else [])]
@@ -510,6 +510,76 @@ def tableMatchingStrict(df_ref, df_prompt, idx_col='Nickname'):
     return match_score / N * recall, total_match_score / N * recall
 
 
+def ReactionDictMatching(dict_ref, dict_prompt, content: str = "inputs"):
+    from google.protobuf import json_format
+    from ord_schema.proto import reaction_pb2
+    from ord_diff.schema import MDict, MDictDiff, MDictListDiff, MessageType
+    from ord_diff.report import report_diff
+
+    mdict_empty = json_format.Parse(json.dumps({}), reaction_pb2.Reaction())
+    mdict_ref = json_format.Parse(json.dumps(dict_ref), reaction_pb2.Reaction())
+    if content == "inputs":
+        # mdict_ref = mdict_ref.inputs[0]
+        mdict_prompt = json_format.Parse(json.dumps({"inputs": dict_prompt}), reaction_pb2.Reaction())
+    else:
+        mdict_prompt = json_format.Parse(json.dumps(dict_prompt), reaction_pb2.Reaction())
+
+    diff = MDictDiff.from_message_pair(mdict_ref, mdict_prompt, message_type=MessageType.REACTION)
+    df = report_diff(diff, message_type=MessageType.REACTION)
+
+    diff_empty = MDictDiff.from_message_pair(mdict_ref, mdict_empty, message_type=MessageType.REACTION)
+    df_empty = report_diff(diff_empty, message_type=MessageType.REACTION)
+    print("############# Output:", mdict_prompt)
+
+    accuracy = 1.0 - df.shape[0] / df_empty.shape[0]
+    return accuracy, df
+
+
+def ReactionDictMatchingSimple(dict_ref, dict_prompt, content: str = "inputs"):
+    """
+    Calculates the ratio of different leaves in two nested dictionaries using the deepdiff library.
+
+    Parameters:
+    - dict1: First dictionary to compare.
+    - dict2: Second dictionary to compare.
+
+    Returns:
+    - Ratio of different leaves.
+    """
+    from deepdiff import DeepDiff
+    # Compare the two dictionaries
+    if content == "inputs":
+        dict_ref = dict_ref["inputs"]
+    diff = DeepDiff(dict_ref, dict_prompt, ignore_order=True, report_repetition=True)
+
+    # Extract the count of different leaves
+    # The 'values_changed', 'type_changes', 'dictionary_item_added', and 'dictionary_item_removed'
+    # can be considered as indicators of different leaves
+    diff_keys = ['values_changed',
+                 'type_changes',
+                 # 'dictionary_item_added',
+                 'dictionary_item_removed']
+    total_diff_leaves = sum(len(diff.get(key, {})) for key in diff_keys)
+
+    # Count total leaves in both dictionaries (assuming all values are leaves)
+    def count_leaves(d, count=0):
+        for v in d.values():
+            if isinstance(v, dict):
+                count = count_leaves(v, count)
+            else:
+                count += 1
+        return count
+
+    total_leaves_dict1 = count_leaves(dict_ref)
+
+    # Calculate the ratio of different leaves to total leaves
+    if total_leaves_dict1 == 0:  # Prevent division by zero
+        return 0
+    ratio = total_diff_leaves / total_leaves_dict1
+
+    return 1.0 - ratio, diff
+
+
 def get_scores_from_text(text: str) -> dict:
     pattern = r"## (.+?)\n.+?(\d)/5"
     matches = re.findall(pattern, text, re.DOTALL)
@@ -555,7 +625,12 @@ def cosine_similarity(model, sentence1: str, sentence2: str):
         return 0  # Return 0 similarity if word not found
 
 
-def same_entities(model, word1: str, word2: str, threshold: float) -> bool:
+def same_entities(model, word1: Union[list, str], word2: str, threshold: float = 0.9) -> bool:
+    if isinstance(word1, list):
+        for w in word1:
+            if (cosine_similarity(model, w, word2) - threshold) > 1e-8:
+                return True
+        return False
     if (cosine_similarity(model, word1, word2) - threshold) > 1e-8:
         return True
     else:
@@ -625,9 +700,9 @@ def f1_score(prediction: str, answers: list[str]) -> float:
 def same_triplets(model, preds: List[List[Any]], true: List[Any]) -> bool:
     match = False
     for pred in preds:
-        if same_entities(model, pred[0], true[0], 0.9) and same_entities(model, pred[1], true[1],
-                                                                         0.9) and same_entities(model, pred[2], true[2],
-                                                                                                0.9):
+        if (same_entities(model, pred[0], true[0], 0.9) and
+                same_entities(model, pred[1], true[1],0.9) and
+                same_entities(model, pred[2], true[2],0.9)):
             match = True
             break
     return match
@@ -667,11 +742,38 @@ def entity_match(model, preds: List[Any], true: str) -> bool:
             match = True
     return match
 
-
 def pick_most_similar_entity_in_pred(model, preds: List[Any], true: str):
     scores = [cosine_similarity(model, pred, true) for pred in preds]
     i = scores.index(max(scores))  # 获取最大数对应的下标
     return preds[i]
+
+#查找compare这个二元组是否在bases这个二元组构成的list中出现，如果出现，则返回True
+def match_turple(model, compare:List[Any],bases:List[List[Any]]) -> bool:
+    found_match = False
+    for base in bases:
+        if compare[0] == base[0] and compare[1] == base[1] :
+            found_match = True
+            break
+        elif same_entities(model, compare[0], base[0], 0.95) and same_entities(model, compare[1], base[1], 0.95):
+            found_match = True
+            break
+        else:
+            continue
+    return found_match
+
+#查找compare这个三元组是否在bases这个三元组构成的list中出现，如果出现，则返回True
+def match_triplet(model, compare:List[Any],bases:List[List[Any]]) -> bool:
+    found_match = False
+    for base in bases:
+        if compare[0] == base[0] and compare[1] == base[1] and compare[2] == base[2] :
+            found_match = True
+            break
+        elif same_entities(model, compare[0], base[0], 0.95) and same_entities(model, compare[1], base[1], 0.95) and same_entities(model, compare[2], base[2], 0.95):
+            found_match = True
+            break
+        else:
+            continue
+    return found_match
 
 
 # 定义用于实体识别的f1-score
@@ -730,21 +832,14 @@ def macro_f1_score_2(model, prediction: List[List[Any]], answers: List[List[Any]
         true_positives = 0
         false_positives = 0
         false_negatives = 0
-        matched_ground_truth_tokens = set()
         for pred_entity in prediction:
-            found_match = False
-            for idx, true_entity in enumerate(answers):
-                if same_entities(model, pred_entity[0], true_entity[0], 0.9) and same_entities(model, pred_entity[1],
-                                                                                               true_entity[1], 0.9):
-                    found_match = True
-                    if idx not in matched_ground_truth_tokens:
-                        true_positives += 1
-                        matched_ground_truth_tokens.add(idx)
-                    break
-            if not found_match:
+            if match_turple(model, pred_entity, answers):
+                true_positives += 1
+            else:
                 false_positives += 1
-        false_negatives = len(answers) - len(matched_ground_truth_tokens)
-
+        for true_entity in answers:
+            if match_turple(model, true_entity, prediction) == False:
+                false_negatives += 1
         # Calculate precision, recall, and F1 score
         precision = true_positives / (true_positives + false_positives) if (true_positives + false_positives) > 0 else 0
         recall = true_positives / (true_positives + false_negatives) if (true_positives + false_negatives) > 0 else 0
@@ -752,7 +847,6 @@ def macro_f1_score_2(model, prediction: List[List[Any]], answers: List[List[Any]
         return f1
     except:
         return 0.0
-
 
 # 定义用于三元组关系抽取的f1-score
 def macro_f1_score_3(model, prediction: List[List[Any]], answers: List[List[Any]]) -> float:
@@ -770,24 +864,16 @@ def macro_f1_score_3(model, prediction: List[List[Any]], answers: List[List[Any]
         true_positives = 0
         false_positives = 0
         false_negatives = 0
-        matched_ground_truth_tokens = set()
-        # similarity_threshold = 0.7
+        # matched_ground_truth_tokens = set()
+        # similarity_threshold = 0.7 
         for pred_entity in prediction:
-            found_match = False
-            for idx, true_entity in enumerate(answers):
-                if same_entities(model, pred_entity[0], true_entity[0], 0.9) and same_entities(model, pred_entity[1],
-                                                                                               true_entity[1],
-                                                                                               0.9) and same_entities(
-                        model, pred_entity[2], true_entity[2], 0.9):
-                    found_match = True
-                    if idx not in matched_ground_truth_tokens:
-                        true_positives += 1
-                        matched_ground_truth_tokens.add(idx)
-                    break
-            if not found_match:
+            if match_triplet(model, pred_entity, answers):
+                true_positives += 1
+            else:
                 false_positives += 1
-        false_negatives = len(answers) - len(matched_ground_truth_tokens)
-
+        for true_entity in answers:
+            if match_triplet(model, true_entity, prediction) == False:
+                false_negatives += 1
         # Calculate precision, recall, and F1 score
         precision = true_positives / (true_positives + false_positives) if (true_positives + false_positives) > 0 else 0
         recall = true_positives / (true_positives + false_negatives) if (true_positives + false_negatives) > 0 else 0
@@ -795,8 +881,6 @@ def macro_f1_score_3(model, prediction: List[List[Any]], answers: List[List[Any]
         return f1
     except:
         return 0.0
-
-
 
 def scrub_formatting_from_prompt(prompt):
     scrubbed_prompt = copy.copy(prompt)
