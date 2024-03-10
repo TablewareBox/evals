@@ -66,7 +66,7 @@ class UniFinderCompletionFn(CompletionFn):
                 url = f"{self.api_base}/api/external/upload_pdf"
                 files = {'file': open(kwargs["file_name"], 'rb')}
                 data = {
-                    # 'pdf_parse_mode': self.pdf_parse_mode,
+                    'pdf_parse_mode': "fast",
                     'api_key': self.api_key,
                     'model_engine': 'gpt',
                 }
@@ -89,7 +89,7 @@ class UniFinderCompletionFn(CompletionFn):
             prompt = CompletionPrompt(prompt).to_formatted_prompt()
 
         payload = {
-            # "model_engine": self.model,
+            "model_engine": "gpt",
             "pdf_token": pdf_token,
             "query": prompt,
             'api_key': self.api_key,
