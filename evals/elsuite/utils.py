@@ -227,7 +227,7 @@ def fuzzy_compare_value(a: str, b: str, metric="EditDistance") -> Union[bool, fl
 
         if mark == "=":
             mark = ""
-        return f"{mark}{number:.1f} {unit}"
+        return f"{mark}{number:.1f} {unit}" #
 
     def is_float(str):
         try:
@@ -281,6 +281,9 @@ def fuzzy_normalize_name(s):
         s = re.sub(r'[^\w\s%.\-\(\)]', '', s)
         if s in synonyms:
             s = synonyms[s]
+        
+        if "°" in s:
+            s = s.replace("°","")
 
         # 分割字符串为单词列表
         words = s.split()
@@ -293,7 +296,8 @@ def fuzzy_normalize_name(s):
         return ' '.join(reordered_words)
 
 
-def fuzzy_normalize_value(vi):
+def fuzzy_normalize_value(viz):
+    vi = copy.copy(viz)
     try:
         vi = str(vi).lower()
 
@@ -323,7 +327,11 @@ def fuzzy_normalize_value(vi):
         except:
             # print(vi)
             pass
+        return vi
     except:
+        # print("Can't fuzzy for", viz)
+        # print(viz)
+        return viz
         pass
 
     return vi
@@ -351,6 +359,7 @@ def tableMatching(df_ref, df_prompt, index='Compound', compare_fields=[], record
         """
         renames = {}
         name2query = lambda name: name if type(name) != tuple else name[0] if len(name) == 1 or name[1] == "" else name[1]
+
         similarities = np.array(np.ones([len(ind0) + 15, len(ind1) + 15]), dtype=np.float64)
         querys0 = [name2query(name) for name in ind0]
         querys1 = [name2query(name) for name in ind1]
@@ -385,6 +394,7 @@ def tableMatching(df_ref, df_prompt, index='Compound', compare_fields=[], record
         return renames
 
     renames = match_indices(compare_fields, df_prompt.columns)
+    print(renames)
     renames = {key: value for key, value in renames.items() if key not in index_names}
     if len(renames) > 0:
         print("Find similar fields between answer and correct:", renames)
@@ -432,6 +442,7 @@ def tableMatching(df_ref, df_prompt, index='Compound', compare_fields=[], record
                 pval = df_prompt.loc[idx, col]
                 p = str(pval.iloc[0]) if type(pval) == pd.Series else str(pval)
             except:
+                gt = 'error'
                 p = 'not found'
 
             _is_matching = fuzzy_compare_name(gt, p, compare_value=True) if col != "SMILES" else compare_molecule(gt, p)
@@ -481,7 +492,7 @@ def tableMatchingStrict(df_ref, df_prompt, idx_col='Nickname'):
                 pd = df_prompt.loc[idx, col]
             except:
                 pd = 'not found'
-            _is_matching = fuzzy_compare(gt, pd)
+            _is_matching = fuzzy_compare_value(gt, pd)
             _total_matching *= float(_is_matching)
             match_score += float(_is_matching) / M
         total_match_score += _total_matching

@@ -92,6 +92,92 @@ class TableExtract(evals.Eval):
         self.instructions = instructions
 
     def eval_sample(self, sample, rng):
+<<<<<<< HEAD
+        try:
+            
+            assert isinstance(sample, FileSample)
+
+            prompt = \
+                    self.instructions
+                    # + f"\nThe fields should at least contain {sample.compare_fields}"
+            result = self.completion_fn(
+                prompt=prompt,
+                temperature=0.0,
+                max_tokens=5,
+                file_name=sample.file_name,
+                file_link=sample.file_link
+            )
+            sampled = result.get_completions()[0]
+
+            compare_fields_types = [type(x) for x in sample.compare_fields]
+            header_rows = [0, 1] if tuple in compare_fields_types else [0]
+
+            correct_answer = parse_table_multiindex(pd.read_csv(sample.answerfile_name, header=header_rows).astype(str), compare_fields=sample.compare_fields)
+            correct_answer.to_csv("temp.csv", index=False)
+            correct_str = open("temp.csv", 'r').read()
+            
+            if sample.index not in correct_answer.columns:
+                if len(header_rows)>1:
+                    correct_answer.columns = pd.MultiIndex.from_tuples([sample.index] + list(correct_answer.columns)[1:])
+                else:
+                    correct_answer.columns = [sample.index] + list(correct_answer.columns)[1:]
+                    
+            try:
+                if re.search(outlink_pattern, sampled) is not None:
+                    code = re.search(outlink_pattern, sampled).group()
+                    link = re.sub(outlink_pattern, r"\1", code)
+
+                    fname = f"/tmp/LLMEvals_{uuid.uuid4()}.csv"
+                    os.system(f"wget {link} -O {fname}")
+                    table = pd.read_csv(fname)
+                    if pd.isna(table.iloc[0, 0]):
+                        table = pd.read_csv(fname, header=header_rows)
+                elif "```csv" in prompt:
+                    code = re.search(csv_pattern, sampled).group()
+                    code_content = re.sub(csv_pattern, r"\1", code)
+                    code_content_processed = parse_csv_text(code_content)
+                    # table = pd.read_csv(StringIO(code_content_processed), header=header_rows)
+                    table = pd.read_csv(StringIO(code_content_processed))
+                    if pd.isna(table.iloc[0, 0]):
+                        table = pd.read_csv(StringIO(code_content_processed), header=header_rows)
+
+                elif "```json" in prompt:
+                    code = re.search(json_pattern, sampled).group()
+                    code_content = re.sub(json_pattern, r"\1", code).replace("\"", "")
+                    table = pd.DataFrame(json.loads(code_content))
+                else:
+                    table = pd.DataFrame()
+                    
+                table = parse_table_multiindex(table, compare_fields=sample.compare_fields)
+                
+                if sample.index not in table.columns:
+                    if len(header_rows)>1:
+                        table.columns = pd.MultiIndex.from_tuples([sample.index] + list(table.columns)[1:])
+                    else:
+                        table.columns =[sample.index] + list(table.columns)[1:]
+
+                print(table)
+                print(correct_answer)
+                answerfile_out = sample.answerfile_name.replace(".csv", "_output.csv")
+                table.to_csv(answerfile_out, index=False)
+                picked_str = open(answerfile_out, 'r').read()
+            except:
+                print(Path(sample.file_name).stem)
+                traceback.print_exc()
+                record_match(
+                    prompt=prompt,
+                    correct=False,
+                    expected=correct_str,
+                    picked=sampled,
+                    file_name=sample.file_name,
+                    jobtype="match_all"
+                )
+                table = None
+                picked_str = "Failed to parse"
+                
+            metrics = tableMatching(correct_answer, table, index=sample.index, compare_fields=sample.compare_fields,
+                                    record=False, file_name=sample.file_name)
+=======
         assert isinstance(sample, FileSample)
 
         prompt = \
@@ -167,28 +253,26 @@ class TableExtract(evals.Eval):
         except:
             print(Path(sample.file_name).stem)
             traceback.print_exc()
+>>>>>>> 60025939908ad308a6bbf6e8c1ade42b69ae7596
             record_match(
                 prompt=prompt,
-                correct=False,
+                correct=(metrics["recall_field"] == 1.0 and metrics["recall_index"] == 1.0 and metrics["recall_value"] == 1.0),
                 expected=correct_str,
-                picked=sampled,
+                picked=picked_str,
                 file_name=sample.file_name,
                 jobtype="match_all"
             )
+            return metrics
+        except:
+            print(Path(sample.file_name).stem)
+            traceback.print_exc()
+
             table = None
             picked_str = "Failed to parse"
             
-        metrics = tableMatching(correct_answer, table, index=sample.index, compare_fields=sample.compare_fields,
-                                record=False, file_name=sample.file_name)
-        record_match(
-            prompt=prompt,
-            correct=(metrics["recall_field"] == 1.0 and metrics["recall_index"] == 1.0 and metrics["recall_value"] == 1.0),
-            expected=correct_str,
-            picked=picked_str,
-            file_name=sample.file_name,
-            jobtype="match_all"
-        )
-        return metrics
+            metrics = {"recall_field": 0.0, "recall_index": 0.0, "recall_value": 0.0, "recall_value_strict": 0.0,
+                "accuracy_value": 0.0, "accuracy_value_strict": 0.0, "recall_SMILES": 0.0}
+            return metrics
 
     def run(self, recorder: RecorderBase):
         raw_samples = get_rag_dataset(self._prefix_registry_path(self.samples_jsonl).as_posix())
