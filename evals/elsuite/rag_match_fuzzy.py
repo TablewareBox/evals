@@ -108,10 +108,8 @@ class RAGMatch(evals.Eval):
         
         print(sampled)
         try:
-            # pattern = re.compile(r'\w\)[\s\d+]?\s?[°]?[CK]?')
-            pattern = re.compile(r'\w\)\s\d+(?:\.\d+)?(?:\s?:\s?\d+(?:\.\d+)?)?\s?[°]?[CK]?') # 包含整数小数比例
-            
-            sampled0 = pattern.findall(sampled)
+            pattern = re.compile(r'\w\)\s\d+(?:\.\d+)?(?:\s?:\s?\d+(?:\.\d+)?)?\s?[°]?[CK]?')
+            sampled0 = pattern.findall(sampled)[0]
             if sampled0 is None or sampled0==[]:
                 pass
             else:
