@@ -1,4 +1,6 @@
 import os
+
+import PIL
 import numpy as np
 from typing import Any, Optional, Union
 
@@ -56,7 +58,9 @@ def truncate_multimodal_prompt(prompt_list, max_images=16, max_size_bytes=4 * 10
             # The image data is a string representation of bytes; calculate its length accordingly.
             item_size = len(item['data'])  # Approximation of size in bytes
             image_count += 1
-        else:
+        elif isinstance(item, PIL.Image.Image):  # It's an image
+            item_size = len(item.tobytes())  # Approximation of size in bytes
+            image_count += 1
             continue  # Skip any item that doesn't fit expected structure
 
         # Check if adding this item would exceed limits
@@ -159,6 +163,7 @@ class GeminiCompletionFn(CompletionFn):
                                       generation_config=generation_config,
                                       safety_settings=safety_settings)
         # response = request_with_timeout(model.generate_content, contents=[openai_create_prompt] + attached_file_content)
+        print("Num tokens:", model.count_tokens(contents=contents))
         response = model.generate_content(
             contents=contents,
         )

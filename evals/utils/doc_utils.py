@@ -1,5 +1,9 @@
+import io
 import os
 from pathlib import Path
+from typing import Union
+
+import PIL
 import fitz  # PyMuPDF
 import PyPDF2
 import tiktoken
@@ -109,7 +113,8 @@ def extract_text_and_fill_in_images(pdf_path, save_img_path=None, add_page_num: 
         all_contents.append(text)
         for i, block in enumerate(blocks_from_pymupdf[page_num]):
             if block[1] == "image":
-                img_cookie = {'mime_type': 'image/png', 'data': block[2]}
+                # img_cookie = {'mime_type': 'image/png', 'data': block[2]}
+                img_cookie = PIL.Image.open(io.BytesIO(block[2]))
                 all_contents.append(img_cookie)
                 # if i != len(blocks_from_pymupdf) - 1:
                 #     fig_caption = " ".join(block[i+1].split()[:3])
@@ -124,3 +129,15 @@ def num_tokens_from_string(string: str, encoding_name: str) -> int:
     encoding = tiktoken.get_encoding(encoding_name)
     num_tokens = len(encoding.encode(string))
     return num_tokens
+
+
+def prompt_cutoff(prompt: Union[str, list], model: str = "gpt-3.5-turbo"):
+    model_max_tokens = {
+        "gpt-3.5-turbo": 15800,
+        "claude-2.1": 10000,
+        "gemini-1.0-pro": 25000,
+        "gemini-1.0-pro-vision": 25000,
+    }
+
+    if type(prompt) == str:
+        pass
