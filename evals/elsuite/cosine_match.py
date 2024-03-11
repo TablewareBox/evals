@@ -264,7 +264,7 @@ class CosineMatchTuple(evals.Eval):
         )
         evals.record.record_metrics(
             value_recall=sum(matches)/len(matches) if matches else 0.0,
-            f1_score=utils.macro_f1_score_3(self.word2vec_model, sample_list, correct_answers),
+            f1_score=utils.macro_f1_score_2(self.word2vec_model, sample_list, correct_answers),
         )
         
 
@@ -334,7 +334,7 @@ class CosineMatchTriplet(evals.Eval):
         )
         evals.record.record_metrics(
             value_recall = sum(matches)/len(matches) if matches else 0.0,
-            f1_score = utils.cos_f1_score(self.word2vec_model, sample_list, correct_answers),
+            f1_score = utils.macro_f1_score_3(self.word2vec_model, sample_list, correct_answers),
         )
 
     def run(self, recorder: RecorderBase):
