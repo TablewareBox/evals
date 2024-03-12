@@ -367,7 +367,7 @@ def tableMatching(df_ref, df_prompt, index='Compound', compare_fields=[], record
         return {"recall_field": 0.0, "recall_index": 0.0, "recall_value": 0.0, "recall_value_strict": 0.0,
                 "accuracy_value": 0.0, "accuracy_value_strict": 0.0, "recall_SMILES": 0.0}
     metrics = {}
-    index_names = ["Compound", "Name", "SMILES", "Nickname", "Substrate"]
+    index_names = ["Compound", "Name", "SMILES", "Nickname", "Substrate","AlloyName"]
 
     if index not in [None, ""]:
         df_ref[index] = df_ref[index].astype(str)

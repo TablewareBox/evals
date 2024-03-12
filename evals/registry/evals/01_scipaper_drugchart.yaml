@@ -1,0 +1,9 @@
+
+drugchart:
+  id: drug_ChartQA.dev.v0
+  metrics: [accuracy]
+
+drug_ChartQA.dev.v0:
+  class: evals.elsuite.choice_match:RAGMatch
+  args:
+    samples_jsonl: drug_ChartQA/samples.jsonl
