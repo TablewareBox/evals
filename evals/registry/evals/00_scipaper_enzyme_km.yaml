@@ -1,0 +1,19 @@
+scipaper_enzyme_km:
+  id: scipaper_enzyme_km.val.csv
+  metrics: [accuracy]
+
+scipaper_enzyme_km.val.csv:
+  class: evals.elsuite.rag_table_extract:TableExtract
+  args:
+    samples_jsonl: 00_scipaper_enzyme_km/samples.jsonl
+    instructions: |
+      Please give a complete list of Substrate, Commentand Organism of all substrates in the paper. Usually the substrates' tags are numbers or IUPAC names.
+      1. Output in csv format, write units not in header but in the value like "10.5 µM". Quote the value if it has comma! For example:
+      ```csv
+      Substrate,Comment,Organism,Km Value
+      ATP,"competitive inhibition of verapamil-dependent ATPase-activity",Homo sapiens, 3.5 nM
+      p-xylene,"20 mM Tris-HCl(pH 7.0), 5 mM MgCl2, at 25 ℃"",Bos taurus, 12 nM
+      D-ribose 6-phosphate, - , Homo sapiens, 120 nM
+      ```
+      2. If there are multiple tables, concat them. Don't give me reference or using "...", give me complete table!
+      3. If no relevant information was found in the paper, use '-' to fill in the form in CSV.

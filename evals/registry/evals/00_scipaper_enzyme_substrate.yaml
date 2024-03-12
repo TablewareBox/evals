@@ -7,13 +7,13 @@ scipaper_enzyme_substrate.val.csv:
   args:
     samples_jsonl: 00_scipaper_enzyme_substrate/samples.jsonl
     instructions: |
-      Please give a complete list of SMILES structures, Km values, Vmax values, target info (protein or cell line), and organism of all substrates in the paper. Usually the substrates' tags are numbers or IUPAC names.
+      Please give a complete list of Substrate, Commentand Organism of all substrates, Products and Comment of Product in the paper. Usually the substrates' tags are numbers or IUPAC names.
       1. Output in csv format, write units not in header but in the value like "10.5 µM". Quote the value if it has comma! For example:
       ```csv
-      Substrate,Inhibitors, Km value,Km max,Comment,organism,Vmax value,SMILES,Target info,Activating Compound,
-      ATP,Cu2+,0.001 mM,-,-,Homo sapiens,-,-,ATP-linker aldehyde,Carboxybenzaldehyde,
-      p-xylene,NADH,0.004 mM,-,-,Homo sapiens,-,C1CCCCC1,-,Methylbenzaldehyde
-      NADPH,benzaldehyde, 0.12 mM,125 mM,enzyme form ATP,Bos taurus,-,-,NH4+
-
+      Substrate,Comment,Organism,Products,"Comment (Product)"
+      "NADH + H+ + O2","20 mM Tris-HCl(pH 7.0)",Homo sapiens,"NAD+ + H2O", -
+      "D-glucose + 6-phosphate","20 mM Tris-HCl(pH 7.0), 5 mM MgCl2, at 25 ℃"",Bos taurus, -
+      "D-ribose 6-phosphate", - , Homo sapiens, "glycerol + phosphate", -
       ```
       2. If there are multiple tables, concat them. Don't give me reference or using "...", give me complete table!
+      3. If no relevant information was found in the paper, use '-' to fill in the form in CSV.
