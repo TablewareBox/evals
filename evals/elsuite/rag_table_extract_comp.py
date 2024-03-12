@@ -310,7 +310,6 @@ class TableExtract(evals.Eval):
             result = self.completion_fn(
                 prompt=prompt,
                 temperature=0.0,
-                max_tokens=5,
                 file_name=sample.file_name,
                 file_link=sample.file_link
             )

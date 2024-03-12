@@ -1,0 +1,9 @@
+
+alloychart:
+  id: alloychart.dev.v0
+  metrics: [accuracy]
+
+alloychart.dev.v0:
+  class: evals.elsuite.rag_match_fuzzy:RAGMatch
+  args:
+    samples_jsonl: 01_alloychart/samples.jsonl
